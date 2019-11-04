@@ -235,22 +235,30 @@ namespace GoFish
             return Card.GetRank(playerCards[index]);
         }
 
-        public byte AiDecideCardFromPlayer(Player player,Card topCard, Card previousTopCard)
+        public List<byte> AiDecideCardFromPlayer(Player player,Card topCard, Card previousTopCard)
         {
+            List<byte> cardsToThrow = new List<byte>();
             List<byte> playerCards = protectedData.PlayerCards(player);
-            int index = UnityEngine.Random.Range(0, playerCards.Count);
 
             //todo:: implement AI strategy
             foreach (byte cardValue in playerCards)
             {
                 bool doIhaveLuckyCardValue = (Card.GetRank(cardValue) == Ranks.Two || Card.GetRank(cardValue) == Ranks.Three || Card.GetRank(cardValue) == Ranks.Ten);
+                bool isCardsToThrowEmpty = cardsToThrow.Count == 0;
+                bool isCardValueFitsCardsToThrow = (cardsToThrow.Count > 0 && Card.GetRank(cardsToThrow[0]) == Card.GetRank(cardValue));
 
-                if (topCard != null && topCard.Value != Card.NO_VALUE && cardValue < topCard.Value && topCard.Rank == Ranks.Seven && Card.GetRank(cardValue) != Ranks.Ace)
+                if (topCard != null && topCard.Value != Card.NO_VALUE && Card.GetRank(cardValue) <= Card.GetRank(topCard.Value) && topCard.Rank == Ranks.Seven && Card.GetRank(cardValue) != Ranks.Ace)
                 {
-                    return cardValue;
+                    if(isCardsToThrowEmpty || isCardValueFitsCardsToThrow)
+                    {
+                        cardsToThrow.Add(cardValue);
+                    }
                 } else if (topCard == null || topCard.Rank == Ranks.Two)
                 {
-                    return cardValue;
+                    if (isCardsToThrowEmpty || isCardValueFitsCardsToThrow)
+                    {
+                        cardsToThrow.Add(cardValue);
+                    }
                 }
                 else if(topCard != null && topCard.Rank == Ranks.Three)
                 {
@@ -258,24 +266,36 @@ namespace GoFish
                     {
                         if (Card.GetRank(cardValue) >= previousTopCard.Rank && previousTopCard.Rank != Ranks.Ace)
                         {
-                            return cardValue;
-                        }else if(previousTopCard.Rank == Ranks.Ace && doIhaveLuckyCardValue)
+                            if (isCardsToThrowEmpty || isCardValueFitsCardsToThrow)
+                            {
+                                cardsToThrow.Add(cardValue);
+                            }
+                        }
+                        else if(previousTopCard.Rank == Ranks.Ace && doIhaveLuckyCardValue)
                         {
-                            return cardValue;
+                            if (isCardsToThrowEmpty || isCardValueFitsCardsToThrow)
+                            {
+                                cardsToThrow.Add(cardValue);
+                            }
                         }
                     }
                 }
                 else if (topCard != null && topCard.Rank == Ranks.Ace && (Card.GetRank(cardValue) == Ranks.Ace || doIhaveLuckyCardValue))
                 {
-                    return cardValue;
+                    if (isCardsToThrowEmpty || isCardValueFitsCardsToThrow)
+                    {
+                        cardsToThrow.Add(cardValue);
+                    }
                 }
-                else if (topCard != null && topCard.Value != Card.NO_VALUE && cardValue >= topCard.Value)
+                else if (topCard != null && topCard.Value != Card.NO_VALUE && Card.GetRank(cardValue) >= topCard.Rank)
                 {
-                    return cardValue;
+                    if (isCardsToThrowEmpty || isCardValueFitsCardsToThrow)
+                    {
+                        cardsToThrow.Add(cardValue);
+                    }
                 }
             }
-
-            return Card.NO_VALUE;
+            return cardsToThrow;
         }
 
         public void SetCurrentTurnPlayer(Player player)

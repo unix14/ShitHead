@@ -329,7 +329,7 @@ namespace GoFish
 
             bool result = true;
 
-            for(int i=0; i< cardValues.Count-1; i++)
+            for(int i=0; i < cardValues.Count; i++)
             {
                 byte cardValue = cardValues[i];
                 Card card = null;
@@ -347,8 +347,9 @@ namespace GoFish
                 }
                 else
                 {
-                    card = DisplayingCards[playerDisplayingCardsCount - 1];
+                    card = DisplayingCards[i];           //[i] ??
                     card.SetCardValue(cardValue);
+                    //result = false;
                 }
                 result = result && isCardOkToThrow(cardAnimator, card);
             }
@@ -372,7 +373,8 @@ namespace GoFish
                             if (card.Rank == Ranks.Ten)
                             {
                                 Debug.LogError("Implement :: put 10 card in stack");
-                                return false;
+                                Put10CardInStack(cardAnimator, card);
+                                return true;
                             }
                             else
                             {

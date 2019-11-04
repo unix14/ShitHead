@@ -31,7 +31,7 @@ namespace GoFish
 
         //protected Card selectedCard;
         protected Ranks selectedRank;
-        protected byte selectedCardValue;
+        protected List<byte> selectedCardValues;
         public List<Card> selectedCards = new List<Card>();
 
         public enum GameState
@@ -218,8 +218,8 @@ namespace GoFish
                 Card stackTopCard = cardAnimator.GetStackTopCard();
                 Card stackPreviousTopCard = cardAnimator.GetStackPreviousTopCard();
 
-                selectedCardValue = gameDataManager.AiDecideCardFromPlayer(currentTurnPlayer, stackTopCard, stackPreviousTopCard);
-                if (Card.GetRank(selectedCardValue) == Ranks.Ten)
+                selectedCardValues = gameDataManager.AiDecideCardFromPlayer(currentTurnPlayer, stackTopCard, stackPreviousTopCard);
+                if (selectedCardValues.Count > 0 && Card.GetRank(selectedCardValues[0]) == Ranks.Ten)
                 {
                     gameState = GameState.TurnSelectingNumber;
                 }
@@ -249,20 +249,23 @@ namespace GoFish
             //byte cardValueFromTargetPlayer = gameDataManager.TakeOneCardValueWithRankFromPlayer(currentTurnPlayer, selectedCard.Rank);
 
             //selectedCardValue = selectedCards[0].Value;
-            List<Byte> selectedCardValues = GetSelectedCardValues();
-
-            if (selectedCardValue != Card.NO_VALUE)
+            //List<Byte> selectedCardValues = GetSelectedCardValues();
+            //selectedCardValues;
+            if (selectedCardValues.Count > 0)
             {
                 //currentTurnPlayer.PutCardInStack(cardAnimator, selectedCard);
                 bool senderIsLocalPlayer = currentTurnPlayer == localPlayer;
 
-                Boolean actionResult = currentTurnPlayer.SendDisplayingCardToStack(cardAnimator, GetSelectedCardValues(), senderIsLocalPlayer);
+                Boolean actionResult = currentTurnPlayer.SendDisplayingCardToStack(cardAnimator, selectedCardValues, senderIsLocalPlayer);
 
                 if (actionResult)
                 {
                     gameDataManager.RemoveCardValuesFromPlayer(currentTurnPlayer, selectedCardValues);   //selectedCard
                     gameState = GameState.TurnStarted;
+
                     TakeCardFromPileIfNeeded();
+
+                    //SwitchTurn();
                 }
                 else
                 {
@@ -272,7 +275,7 @@ namespace GoFish
                     //GameFlow();
                     ResetSelectedCard();
                 }
-                selectedCardValue = 0;  
+                //selectedCardValue = 0;  
             }
             else
             {
@@ -294,41 +297,40 @@ namespace GoFish
             return selectedCardValues;
         }
 
-        private void TakeCardFromPile()
+        private void TakeCardsFromPile(int numOfCards)
         {
             //List<byte> playerCardValues = gameDataManager.PlayerCards(remotePlayer);
 
-
-            byte cardValue = gameDataManager.DrawCardValue();
-
-            if (cardValue == Constants.POOL_IS_EMPTY)
+            for(int i=0; i < numOfCards; i++)
             {
-                Debug.LogError("Pool is empty");
-                return;
+                byte cardValue = gameDataManager.DrawCardValue();
+
+                if (cardValue == Constants.POOL_IS_EMPTY)
+                {
+                    Debug.LogError("Pool is empty");
+                    return;
+                }
+
+                //playerCardValues.Add(cardValue);
+                //currentTurnPlayer.SetCardValues(playerCardValues);
+
+                if (Card.GetRank(cardValue) == selectedRank)
+                {
+                    cardAnimator.DrawDisplayingCard(currentTurnPlayer, cardValue);
+                }
+                else
+                {
+                    cardAnimator.DrawDisplayingCard(currentTurnPlayer);
+                }
+
+                gameDataManager.AddCardValueToPlayer(currentTurnPlayer, cardValue);
             }
 
-            //playerCardValues.Add(cardValue);
-            //currentTurnPlayer.SetCardValues(playerCardValues);
-
-            if (Card.GetRank(cardValue) == selectedRank)
-            {
-                cardAnimator.DrawDisplayingCard(currentTurnPlayer, cardValue);
-            }
-            else
-            {
-                cardAnimator.DrawDisplayingCard(currentTurnPlayer);
-
-            }
 
             //gameDataManager.DealCardValuesToPlayer(currentTurnPlayer, 1);
-
             //cardAnimator.DealDisplayingCards(currentTurnPlayer, 1);
 
             gameState = GameState.TurnStarted;
-
-            gameDataManager.AddCardValueToPlayer(currentTurnPlayer, cardValue);
-
-
             GameFlow();
         }
 
@@ -336,7 +338,7 @@ namespace GoFish
         {
             if(currentTurnPlayer.DisplayingCards.Count < PLAYER_INITIAL_CARDS)
             {
-                TakeCardFromPile();
+                TakeCardsFromPile(PLAYER_INITIAL_CARDS - currentTurnPlayer.DisplayingCards.Count);
             }
         }
 
@@ -424,7 +426,7 @@ namespace GoFish
                 }
                 selectedRank = 0;   //TODO REMOvE?
             }
-            selectedCardValue = 0;
+            //selectedCardValue = 0;
         }
 
         protected void SetMessage(string message)
@@ -519,7 +521,7 @@ namespace GoFish
                                     c.OnSelected(false);
                                 }
                                 selectedRank = 0;
-                                selectedCardValue = Card.NO_VALUE;
+                                //selectedCardValue = Card.NO_VALUE;
                             }
                         }
                         else
@@ -528,9 +530,9 @@ namespace GoFish
                         }
 
                         selectedCards = newSelectedCards;
-
+                        selectedCardValues = GetSelectedCardValues();
                         selectedRank = card.Rank;
-                        selectedCardValue = card.GetCardValue();
+                        //selectedCardValue = card.GetCardValue();
 
                         if(selectedCards.Count >0)
                         {
