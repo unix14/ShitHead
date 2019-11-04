@@ -107,49 +107,49 @@ namespace GoFish
 
             if (NetworkClient.Instance.IsHost)
             {
-                gameState = GameState.TurnWaitingForOpponentConfirmation;
+                gameState = GameState.TurnStarted;
                 gameDataManager.SetGameState(gameState);
 
                 netCode.ModifyGameData(gameDataManager.EncryptedData());
                 netCode.NotifyOtherPlayersGameStateChanged();
             }
-            gameState = GameState.TurnWaitingForOpponentConfirmation;
+            gameState = GameState.TurnStarted;
             GameFlow();
         }
 
-        protected override void OnTurnOpponentConfirmed()
-        {
-            List<byte> cardValuesFromTargetPlayer = gameDataManager.TakeCardValuesWithRankFromPlayer(currentTurnTargetPlayer, selectedRank);
+        //protected override void OnTurnOpponentConfirmed()
+        //{
+        //    List<byte> cardValuesFromTargetPlayer = gameDataManager.TakeCardValuesWithRankFromPlayer(currentTurnTargetPlayer, selectedRank);
 
-            if (cardValuesFromTargetPlayer.Count > 0)
-            {
-                gameDataManager.AddCardValuesToPlayer(currentTurnPlayer, cardValuesFromTargetPlayer);
+        //    if (cardValuesFromTargetPlayer.Count > 0)
+        //    {
+        //        gameDataManager.AddCardValuesToPlayer(currentTurnPlayer, cardValuesFromTargetPlayer);
 
-                bool senderIsLocalPlayer = currentTurnTargetPlayer == localPlayer;
-                currentTurnTargetPlayer.SendDisplayingCardToPlayer(currentTurnPlayer, cardAnimator, cardValuesFromTargetPlayer, senderIsLocalPlayer);
+        //        bool senderIsLocalPlayer = currentTurnTargetPlayer == localPlayer;
+        //        currentTurnTargetPlayer.SendDisplayingCardToPlayer(currentTurnPlayer, cardAnimator, cardValuesFromTargetPlayer, senderIsLocalPlayer);
 
-                if (NetworkClient.Instance.IsHost)
-                {
-                    gameState = GameState.TurnSelectingNumber;
+        //        if (NetworkClient.Instance.IsHost)
+        //        {
+        //            gameState = GameState.TurnSelectingNumber;
 
-                    gameDataManager.SetGameState(gameState);
-                    netCode.ModifyGameData(gameDataManager.EncryptedData());
-                }
-            }
-            else
-            {
-                if (NetworkClient.Instance.IsHost)
-                {
-                    gameState = GameState.TurnGoFish;
+        //            gameDataManager.SetGameState(gameState);
+        //            netCode.ModifyGameData(gameDataManager.EncryptedData());
+        //        }
+        //    }
+        //    else
+        //    {
+        //        if (NetworkClient.Instance.IsHost)
+        //        {
+        //            gameState = GameState.TurnGoFish;
 
-                    gameDataManager.SetGameState(gameState);
-                    netCode.ModifyGameData(gameDataManager.EncryptedData());
-                    netCode.NotifyOtherPlayersGameStateChanged();
-                }
-                gameState = GameState.TurnGoFish;
-                GameFlow();
-            }
-        }
+        //            gameDataManager.SetGameState(gameState);
+        //            netCode.ModifyGameData(gameDataManager.EncryptedData());
+        //            netCode.NotifyOtherPlayersGameStateChanged();
+        //        }
+        //        gameState = GameState.TurnGoFish;
+        //        GameFlow();
+        //    }
+        //}
 
         protected override void OnTurnGoFish()
         {
@@ -199,13 +199,13 @@ namespace GoFish
         {
             if (gameState == GameState.TurnSelectingNumber && localPlayer == currentTurnPlayer)
             {
-                if (selectedCard != null)
+                if (selectedCards.Count >0)
                 {
-                    netCode.NotifyHostPlayerRankSelected((int)selectedCard.Rank);
+                    netCode.NotifyHostPlayerRankSelected((int)selectedCards[0].Rank);   //TODO fix == not correct way
 
                 }
             }
-            else if (gameState == GameState.TurnWaitingForOpponentConfirmation && localPlayer == currentTurnTargetPlayer)
+            else if (gameState == GameState.TurnConfirmedSelectedNumber && localPlayer == currentTurnTargetPlayer)
             {
                 netCode.NotifyHostPlayerOpponentConfirmed();
             }
@@ -300,7 +300,7 @@ namespace GoFish
 
         public void OnOpponentConfirmed()
         {
-            gameState = GameState.TurnOpponentConfirmed;
+            gameState = GameState.TurnStarted;
 
             gameDataManager.SetGameState(gameState);
 

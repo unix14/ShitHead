@@ -184,11 +184,6 @@ namespace GoFish
         {
             bool result = false;
             Decrypt();
-            if (poolOfCards.Count == 0)
-            {
-                result = true;
-            }
-
             if (player1Cards.Count == 0)
             {
                 result = true;
@@ -204,16 +199,58 @@ namespace GoFish
             return result;
         }
 
+        public bool GameFinishedPoolOfCards()
+        {
+            bool result = false;
+            Decrypt();
+            if (poolOfCards.Count == 0)
+            {
+                result = true;
+            }
+
+            Encrypt();
+
+            return result;
+        }
+
+        public bool Player1FinishedPoolOfCards()
+        {
+            bool result = false;
+            Decrypt();
+            if (player1Cards.Count == 0)
+            {
+                result = true;
+            }
+
+            Encrypt();
+
+            return result;
+        }
+
+        public bool Player2FinishedPoolOfCards()
+        {
+            bool result = false;
+            Decrypt();
+            if (player2Cards.Count == 0)
+            {
+                result = true;
+            }
+
+            Encrypt();
+
+            return result;
+        }
+
         public string WinnerPlayerId()
         {
-            string result;
+            string result="";
             Decrypt();
 
-            if (booksForPlayer1.Count > booksForPlayer2.Count)
+            if (booksForPlayer1.Count == 0)
             {
                 result =  player1Id;
             }
-            else
+            else if (booksForPlayer2.Count == 0)
             {
                 result = player2Id;
             }
@@ -310,19 +347,19 @@ namespace GoFish
 
             safeData = AES.EncryptAES128(message.ToArray(), encryptionKey);
 
-            poolOfCards = new List<byte>();
-            player1Cards = new List<byte>();
-            player2Cards = new List<byte>();
+            //poolOfCards = new List<byte>();
+            //player1Cards = new List<byte>();
+            //player2Cards = new List<byte>();
 
-            booksForPlayer1 = new List<byte>();
-            booksForPlayer2 = new List<byte>();
+            //booksForPlayer1 = new List<byte>();
+            //booksForPlayer2 = new List<byte>();
 
-            player1Id = null;
-            player2Id = null;
+            //player1Id = null;
+            //player2Id = null;
 
-            currentTurnPlayerId = null;
-            currentGameState = 0;
-            selectedRank = 0;
+            //currentTurnPlayerId = null;
+            //currentGameState = 0;
+            //selectedRank = 0;
 
         }
 

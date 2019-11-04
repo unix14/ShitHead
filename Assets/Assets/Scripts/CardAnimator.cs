@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
@@ -10,12 +11,15 @@ namespace GoFish
         public Card card;
         public Vector2 destination;
         public Quaternion rotation;
- 
+        public float animationSpeed;
+
+
         public CardAnimation(Card c, Vector2 pos)
         {
             card = c;
             destination = pos;
             rotation = Quaternion.identity;
+            animationSpeed = Constants.CARD_MOVEMENT_SPEED;
         }
 
         public CardAnimation(Card c, Vector2 pos, Quaternion rot)
@@ -23,6 +27,15 @@ namespace GoFish
             card = c;
             destination = pos;
             rotation = rot;
+            animationSpeed = Constants.CARD_MOVEMENT_SPEED;
+        }
+
+        public CardAnimation(Card c, Vector2 pos, Quaternion rot,float animSpeed)
+        {
+            card = c;
+            destination = pos;
+            rotation = rot;
+            animationSpeed = animSpeed;
         }
 
         public bool Play()
@@ -36,7 +49,7 @@ namespace GoFish
             }
             else
             {
-                card.transform.position = Vector2.MoveTowards(card.transform.position, destination, Constants.CARD_MOVEMENT_SPEED * Time.deltaTime);
+                card.transform.position = Vector2.MoveTowards(card.transform.position, destination, animationSpeed * Time.deltaTime);
                 card.transform.rotation = Quaternion.Lerp(card.transform.rotation, rotation, Constants.CARD_ROTATION_SPEED * Time.deltaTime);
             }
 
@@ -70,11 +83,22 @@ namespace GoFish
         bool working = false;
 
         public int stackSize { get => StackCards.Count; }
+        public bool isOpen = false;
+        public int dumpStackSize = 0;
 
         public Card GetStackTopCard(){
             if(StackCards != null && stackSize > 0)
             {
                 return StackCards[stackSize-1];
+            }
+            return null;
+        }
+
+        public Card GetStackPreviousTopCard()
+        {
+            if (StackCards != null && stackSize > 1)
+            {
+                return StackCards[stackSize - 2];
             }
             return null;
         }
@@ -208,7 +232,7 @@ namespace GoFish
 
         public void AddCardToStack(Card card)
         {
-            float randomRotation = Random.Range(-1 * Constants.BOOK_MAX_RANDOM_ROTATION, Constants.BOOK_MAX_RANDOM_ROTATION);
+            float randomRotation = UnityEngine.Random.Range(-1 * Constants.BOOK_MAX_RANDOM_ROTATION, Constants.BOOK_MAX_RANDOM_ROTATION);
             Quaternion rotation = Quaternion.Euler(Vector3.forward * randomRotation);
 
             CardAnimation ca = new CardAnimation(card, stackPosition, rotation);
@@ -220,11 +244,75 @@ namespace GoFish
             working = true;
         }
 
+        public void Add10CardToStack(Card card)
+        {
+            float randomRotation = UnityEngine.Random.Range(-1 * Constants.BOOK_MAX_RANDOM_ROTATION, Constants.BOOK_MAX_RANDOM_ROTATION);
+            Quaternion rotation = Quaternion.Euler(Vector3.forward * randomRotation);
+
+
+            CardAnimation ca = new CardAnimation(card, stackPosition, rotation);
+
+            StackCards.Add(card);
+            card.SetDisplayingOrder(stackSize);
+
+            //card.SetFaceUp(true);
+            cardAnimations.Enqueue(ca);
+
+            foreach (Card c in StackCards)
+            {
+                CardAnimation cleanStackAniamtion = new CardAnimation(c, startPosition * -1, c.transform.rotation, Constants.STACK_OF_CARDS_MOVEMENT_SPEED);
+                cardAnimations.Enqueue(cleanStackAniamtion);
+
+                dumpStackSize++;
+                c.SetDisplayingOrder(dumpStackSize);
+            }
+
+            working = true;
+
+            StackCards.Clear();
+        }
+
+        public List<Card> getStack()
+        {
+            return StackCards;
+        }
+
+        public List<byte> getStackValues()
+        {
+            List<byte> returnedList = new List<byte>();
+
+            foreach(Card c in StackCards)
+            {
+                returnedList.Add(c.Value);
+            }
+            return returnedList;
+        }
+
         public void AddCardAnimation(Card card, Vector2 position, Quaternion rotation)
         {
             CardAnimation ca = new CardAnimation(card, position, rotation);
             cardAnimations.Enqueue(ca);
             working = true;
+        }
+
+        public void openLast3CardsFromStack()
+        {
+            isOpen = !isOpen;
+            int allStackCardsCount = StackCards.Count - 1;
+            if(allStackCardsCount > 1)
+            {
+                for (int i = 0; i <= 2; i++)
+                {
+                    if (isOpen && i > 0)
+                    {
+                        StackCards[allStackCardsCount - i].transform.position = (Vector2)transform.position + Vector2.right * Mathf.Min(Constants.CARD_SELECTED_STACK_OFFSET * i, 3.5f);
+                    }
+                    else
+                    {
+                        StackCards[allStackCardsCount - i].transform.position = stackPosition;
+                    }
+                }
+            }
         }
 
         private void Update()
@@ -240,6 +328,11 @@ namespace GoFish
                     NextAnimation();
                 }
             }
+        }
+
+        internal void clearStack()
+        {
+            StackCards.Clear();
         }
 
         void NextAnimation()

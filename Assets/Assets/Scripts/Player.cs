@@ -26,7 +26,15 @@ namespace GoFish
 
         public Vector2 NextCardPosition()
         {
-            Vector2 nextPos = Position + Vector2.right * Constants.PLAYER_CARD_POSITION_OFFSET * NumberOfDisplayingCards;
+            Vector2 nextPos;
+            if (NumberOfDisplayingCards < 10)
+            {
+                nextPos = Position + Vector2.right * Constants.PLAYER_CARD_POSITION_OFFSET * NumberOfDisplayingCards;
+            }
+            else
+            {
+                nextPos = Position - Vector2.left * Constants.PLAYER_CARD_POSITION_OFFSET * (10-NumberOfDisplayingCards);
+            }
             return nextPos;
         }
 
@@ -92,6 +100,7 @@ namespace GoFish
 
         public void ReceiveDisplayingCard(Card card)
         {
+            Debug.Log("DisplayingCards.Add(card) " + card);
             DisplayingCards.Add(card);
             card.OwnerId = PlayerId;
             NumberOfDisplayingCards++;
@@ -112,6 +121,7 @@ namespace GoFish
                     displayingCardsToRemove.Add(card);
 
                     DisplayingBooks.Add(card);
+                    Debug.Log("DisplayingCards.RemoveAll( " + card);
                 }
             }
 
@@ -143,20 +153,16 @@ namespace GoFish
             NumberOfBooks++;
         }
 
-        public void CreateBottomBook(Ranks rank, CardAnimator cardAnimator, int index)
+        public void CreateBottomBook(byte cardValue, CardAnimator cardAnimator, int index)
         {
             Vector2 targetPosition = GetBookPositionByIndex(index);
             Card card = cardAnimator.TakeFirstDisplayingCard();
 
-            int intRankValue = (int)rank;
-            int cardValue = (intRankValue - 1);
-
-            card.Rank = rank;
-            card.Suit = (Suits) UnityEngine.Random.Range(0,3);
-            //card.SetCardValue((byte)cardValue);
+            card.SetCardValue(cardValue);
             card.SetDisplayingOrder(-1);
             card.OwnerId = PlayerId;
             card.SetFaceUp(false);
+            card.isTouchable = false;
 
             float randomRotation = UnityEngine.Random.Range(-1 * Constants.BOOK_MAX_RANDOM_ROTATION, Constants.BOOK_MAX_RANDOM_ROTATION);
             Quaternion rotation = Quaternion.Euler(Vector3.forward * randomRotation);
@@ -166,7 +172,7 @@ namespace GoFish
             NumberOfHiddenBooks++;
         }
 
-        public void CreateTopBook(Ranks rank, CardAnimator cardAnimator, int index)
+        public void CreateTopBook(byte rank, CardAnimator cardAnimator, int index)
         {
             Vector2 targetPosition = GetBookPositionByIndex(index);
 
@@ -175,12 +181,12 @@ namespace GoFish
             //card.Suit = (Suits)UnityEngine.Random.Range(0, 3);
             //card.Rank = rank;
 
-            card.SetCardValue((byte)rank);
+            card.SetCardValue(rank);
 
             card.SetDisplayingOrder(0);
             card.OwnerId = PlayerId;
             //card.SetFaceUp(true);
-
+            card.isTouchable = false;
 
             float randomRotation = UnityEngine.Random.Range(-1 * Constants.BOOK_MAX_RANDOM_ROTATION, Constants.BOOK_MAX_RANDOM_ROTATION);
             Quaternion rotation = Quaternion.Euler(Vector3.forward * randomRotation);
@@ -196,9 +202,67 @@ namespace GoFish
             NumberOfDisplayingCards = 0;
             foreach (Card card in DisplayingCards)
             {
+                card.transform.rotation = Quaternion.identity;
+                
                 NumberOfDisplayingCards++;
                 cardAnimator.AddCardAnimation(card, NextCardPosition());
             }
+        }
+
+        public void SendStackCardsToPlayer(Player receivingPlayer, CardAnimator cardAnimator, List<byte> cardValues, bool isLocalPlayer)
+        {
+            List<Card> StackCards = cardAnimator.getStack();
+            int playerDisplayingCardsCount = StackCards.Count;
+
+            if (playerDisplayingCardsCount < cardValues.Count)
+            {
+                Debug.LogError("Not enough stack cards");
+                return;
+            }
+
+            for (int index = 0; index < cardValues.Count; index++)
+            {
+
+                Card card = null;
+                byte cardValue = cardValues[index];
+
+                if (isLocalPlayer)
+                {
+                    foreach (Card c in StackCards)
+                    {
+                        if (c.Rank == Card.GetRank(cardValue) && c.Suit == Card.GetSuit(cardValue))
+                        {
+                            card = c;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    card = StackCards[playerDisplayingCardsCount - 1 - index];
+                    card.SetCardValue(cardValue);
+                    card.SetFaceUp(true);
+                }
+
+                if (card != null)
+                {
+                    card.isInStack = false;
+                    card.isTouchable = true;
+
+                    receivingPlayer.ReceiveDisplayingCard(card);
+                    cardAnimator.AddCardAnimation(card, receivingPlayer.NextCardPosition());
+                    if (isLocalPlayer)
+                        NumberOfDisplayingCards++;
+                    else
+                        receivingPlayer.NumberOfDisplayingCards++;
+                }
+                else
+                {
+                    Debug.LogError("Unable to find stack card.");
+                }
+            }
+            cardAnimator.clearStack();
+            RepositionDisplayingCards(cardAnimator);
         }
 
         public void SendDisplayingCardToPlayer(Player receivingPlayer, CardAnimator cardAnimator, List<byte> cardValues, bool isLocalPlayer)
@@ -237,6 +301,8 @@ namespace GoFish
 
                 if(card != null)
                 {
+                    Debug.Log("DisplayingCards.Remove(card) " + card);
+
                     DisplayingCards.Remove(card);
                     receivingPlayer.ReceiveDisplayingCard(card);
                     cardAnimator.AddCardAnimation(card, receivingPlayer.NextCardPosition());
@@ -251,8 +317,7 @@ namespace GoFish
             RepositionDisplayingCards(cardAnimator);
         }
 
-
-        public Boolean SendDisplayingCardToStack(CardAnimator cardAnimator, byte cardValue, bool isLocalPlayer)
+        public Boolean SendDisplayingCardToStack(CardAnimator cardAnimator, List<byte> cardValues, bool isLocalPlayer)
         {
             int playerDisplayingCardsCount = DisplayingCards.Count;
 
@@ -262,7 +327,11 @@ namespace GoFish
                 return false;
             }
 
+            bool result = true;
 
+            for(int i=0; i< cardValues.Count-1; i++)
+            {
+                byte cardValue = cardValues[i];
                 Card card = null;
 
                 if (isLocalPlayer)
@@ -280,56 +349,173 @@ namespace GoFish
                 {
                     card = DisplayingCards[playerDisplayingCardsCount - 1];
                     card.SetCardValue(cardValue);
-                    card.SetFaceUp(true);
                 }
+                result = result && isCardOkToThrow(cardAnimator, card);
+            }
+            return result;
+        }
 
-                if (card != null)
+        private bool isCardOkToThrow(CardAnimator cardAnimator, Card card)
+        {
+            if (card != null)
+            {
+                bool doIhaveAluckyCard = card.Rank == Ranks.Two || card.Rank == Ranks.Three || card.Rank == Ranks.Ten;
+                Card topStackCard = cardAnimator.GetStackTopCard();
+                Card previousStackCard = cardAnimator.GetStackPreviousTopCard();
+
+                if (topStackCard != null)
                 {
-                    Card topStackCard = cardAnimator.GetStackTopCard();
-
-                    if(topStackCard != null)
+                    if (topStackCard.Rank == Ranks.Ace)
                     {
-                        if(card.Rank >= topStackCard.Rank)
+                        if (card.Rank == Ranks.Ace || doIhaveAluckyCard)
+                        {
+                            if (card.Rank == Ranks.Ten)
+                            {
+                                Debug.LogError("Implement :: put 10 card in stack");
+                                return false;
+                            }
+                            else
+                            {
+                                PutCardInStack(cardAnimator, card);
+                                return true;
+                            }
+                        }
+                        else
+                        {
+                            Debug.LogError("You encountred ACE");
+                            return false;
+                        }
+                    }
+                    else if (topStackCard.Rank == Ranks.Seven)
+                    {
+                        if (card.Rank <= Ranks.Seven && card.Rank != Ranks.Ace)
                         {
                             PutCardInStack(cardAnimator, card);
                             return true;
                         }
-                        else if(topStackCard.Rank == Ranks.Seven)
+                        else if (doIhaveAluckyCard)
                         {
-                            if (card.Rank <= Ranks.Seven)
+                            if (card.Rank == Ranks.Ten)
+                            {
+                                Debug.LogError("Implement :: put 10 card in stack");
+                                Put10CardInStack(cardAnimator, card);
+                                return true;
+                            }
+                            else
+                            {
+                                PutCardInStack(cardAnimator, card);
+                                return true;
+                            }
+                        }
+                        else
+                        {
+                            Debug.LogError("You encountred  Need bigger than 7");
+                            return false;
+                        }
+                    }
+                    else if (topStackCard.Rank == Ranks.Two || card.Rank == Ranks.Ace || doIhaveAluckyCard)
+                    {
+                        if (card.Rank == Ranks.Ten)
+                        {
+                            Debug.LogError("Implement :: put 10 card in stack");
+                            Put10CardInStack(cardAnimator, card);
+                            return true;
+                        }
+                        else
+                        {
+                            PutCardInStack(cardAnimator, card);
+                            return true;
+                        }
+                    }
+                    else if (topStackCard.Rank == Ranks.Three)
+                    {
+                        if (previousStackCard != null)
+                        {
+                            if (card.Rank >= previousStackCard.Rank && previousStackCard.Rank != Ranks.Ace)
+                            {
+                                PutCardInStack(cardAnimator, card);
+                                return true;
+                            }
+                            else if (previousStackCard.Rank == Ranks.Ace && (card.Rank == Ranks.Ace || doIhaveAluckyCard))
+                            {
+                                if (card.Rank == Ranks.Ten)
+                                {
+                                    Debug.LogError("Implement :: put 10 card in stack");
+                                    Put10CardInStack(cardAnimator, card);
+                                    return true;
+                                }
+                                else
+                                {
+                                    PutCardInStack(cardAnimator, card);
+                                    return true;
+                                }
+
+                            }
+                            else
+                            {
+                                Debug.LogError("You encountred Need bigger Card Than " + previousStackCard.Rank);
+                                return false;
+                            }
+                        }
+                        else
+                        {
+                            if (card.Rank >= Ranks.Three)
                             {
                                 PutCardInStack(cardAnimator, card);
                                 return true;
                             }
                             else
                             {
-                                Debug.LogError("You encountred 7");
+                                Debug.LogError("You encountred Need bigger Card Than 3");
                                 return false;
                             }
                         }
-                        else
-                        {
-                            Debug.LogError("You encountred Need bigger Card");
-
-                            return false;
-                        }
-                    }else
+                    }
+                    else if (card.Rank >= topStackCard.Rank)
                     {
                         PutCardInStack(cardAnimator, card);
                         return true;
                     }
-                    
+                    else
+                    {
+                        Debug.LogError("You encountred Need bigger Card " + card.Rank + card.Value);
+                        return false;
+                    }
                 }
                 else
                 {
-                    Debug.LogError("Unable to find displaying card.");
-                    return false;
+                    PutCardInStack(cardAnimator, card);
+                    return true;
                 }
-            return false;
+            }
+            else
+            {
+                Debug.LogError("Unable to find displaying card.");
+                return false;
+            }
         }
 
-        private void PutCardInStack(CardAnimator cardAnimator, Card card)
+        public void Put10CardInStack(CardAnimator cardAnimator, Card card)
         {
+            Debug.Log("DisplayingCards.Remove(card10) " + card);
+            card.isInStack = true;
+            card.isTouchable = false;
+            card.SetFaceUp(true);
+
+            DisplayingCards.Remove(card);
+            cardAnimator.Add10CardToStack(card);
+            NumberOfDisplayingCards--;
+
+            RepositionDisplayingCards(cardAnimator);
+        }
+
+        public void PutCardInStack(CardAnimator cardAnimator, Card card)
+        {
+            Debug.Log("DisplayingCards.Remove(card) " + card);
+            card.isInStack = true;
+            card.isTouchable = false;
+            card.SetFaceUp(true);
+
             DisplayingCards.Remove(card);
             cardAnimator.AddCardToStack(card);
             NumberOfDisplayingCards--;
@@ -346,6 +532,14 @@ namespace GoFish
             else
             {
                 return false;
+            }
+        }
+
+        internal void SetTopBooksClickable(bool isClickable)
+        {
+            foreach (Card c in DisplayingBooks)
+            {
+                c.isTouchable = true;
             }
         }
     }

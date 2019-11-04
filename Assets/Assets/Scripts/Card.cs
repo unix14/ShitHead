@@ -9,8 +9,12 @@ namespace GoFish
     /// SetFaceUp(false) clears card's face value
     /// To display a card's value, call SetCardValue(byte) to assign the Rank and the Suit to the card, then call SetFaceUp(true)
     /// </summary>
+    /// 
     public class Card : MonoBehaviour
     {
+
+        public const byte NO_VALUE = 255;
+
         public static Ranks GetRank(byte value)
         {
             return (Ranks)(value / 4 + 1);
@@ -25,6 +29,10 @@ namespace GoFish
 
         public Suits Suit = Suits.NoSuits;
         public Ranks Rank = Ranks.NoRanks;
+        public byte Value = NO_VALUE;
+
+        public bool isTouchable = true;
+        public bool isInStack = false;
 
         public string OwnerId;
 
@@ -70,6 +78,13 @@ namespace GoFish
 
             // 0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48 are Spades(0)
             Suit = (Suits)(value % 4);
+
+            Value = value;
+        }
+
+        public byte GetCardValue()
+        {
+            return Value;
         }
 
         void UpdateSprite()
@@ -113,6 +128,18 @@ namespace GoFish
                 transform.position = (Vector2)transform.position - Vector2.up * Constants.CARD_SELECTED_OFFSET;
             }
         }
+
+        //public void OnStackCardSelected(bool selected)
+        //{
+        //    if (selected)
+        //    {
+        //        transform.position = (Vector2)transform.position + Vector2.right * Constants.CARD_SELECTED_OFFSET * 5;
+        //    }
+        //    else
+        //    {
+        //        transform.position = (Vector2)transform.position - Vector2.right * Constants.CARD_SELECTED_OFFSET * 5;
+        //    }
+        //}
     }
 }
 

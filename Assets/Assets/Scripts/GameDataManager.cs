@@ -122,16 +122,33 @@ namespace GoFish
             {
                 return localPlayer;
             }
-            else
+            else if (winnerPlayerId.Equals(remotePlayer.PlayerId))
             {
                 return remotePlayer;
             }
+            else return null;
         }
 
         public bool GameFinished()
         {
             return protectedData.GameFinished();
         }
+
+        public bool GameFinishedPoolOfCards()
+        {
+            return protectedData.GameFinishedPoolOfCards();
+        }
+
+        public bool Player1FinishedPoolOfCards()
+        {
+            return protectedData.Player1FinishedPoolOfCards();
+        }
+
+        public bool Player2FinishedPoolOfCards()
+        {
+            return protectedData.Player1FinishedPoolOfCards();
+        }
+
 
         public List<byte> TakeCardValuesWithRankFromPlayer(Player player, Ranks ranks)
         {
@@ -160,7 +177,7 @@ namespace GoFish
             {
                 if (Card.GetRank(cv) == ranks)
                 {
-                    protectedData.RemoveCardFromPlayer(player, cv);
+                    //protectedData.RemoveCardFromPlayer(player, cv);
 
                     return cv;
                 }
@@ -216,6 +233,49 @@ namespace GoFish
             }
 
             return Card.GetRank(playerCards[index]);
+        }
+
+        public byte AiDecideCardFromPlayer(Player player,Card topCard, Card previousTopCard)
+        {
+            List<byte> playerCards = protectedData.PlayerCards(player);
+            int index = UnityEngine.Random.Range(0, playerCards.Count);
+
+            //todo:: implement AI strategy
+            foreach (byte cardValue in playerCards)
+            {
+                bool doIhaveLuckyCardValue = (Card.GetRank(cardValue) == Ranks.Two || Card.GetRank(cardValue) == Ranks.Three || Card.GetRank(cardValue) == Ranks.Ten);
+
+                if (topCard != null && topCard.Value != Card.NO_VALUE && cardValue < topCard.Value && topCard.Rank == Ranks.Seven && Card.GetRank(cardValue) != Ranks.Ace)
+                {
+                    return cardValue;
+                } else if (topCard == null || topCard.Rank == Ranks.Two)
+                {
+                    return cardValue;
+                }
+                else if(topCard != null && topCard.Rank == Ranks.Three)
+                {
+                    if(previousTopCard != null)
+                    {
+                        if (Card.GetRank(cardValue) >= previousTopCard.Rank && previousTopCard.Rank != Ranks.Ace)
+                        {
+                            return cardValue;
+                        }else if(previousTopCard.Rank == Ranks.Ace && doIhaveLuckyCardValue)
+                        {
+                            return cardValue;
+                        }
+                    }
+                }
+                else if (topCard != null && topCard.Rank == Ranks.Ace && (Card.GetRank(cardValue) == Ranks.Ace || doIhaveLuckyCardValue))
+                {
+                    return cardValue;
+                }
+                else if (topCard != null && topCard.Value != Card.NO_VALUE && cardValue >= topCard.Value)
+                {
+                    return cardValue;
+                }
+            }
+
+            return Card.NO_VALUE;
         }
 
         public void SetCurrentTurnPlayer(Player player)
