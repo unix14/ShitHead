@@ -23,6 +23,10 @@ namespace GoFish
         [SerializeField]
         List<byte> booksForPlayer1 = new List<byte>();
         [SerializeField]
+        List<byte> hiddenBooksForPlayer1 = new List<byte>();
+        [SerializeField]
+        List<byte> hiddenBooksForPlayer2 = new List<byte>();
+        [SerializeField]
         List<byte> booksForPlayer2 = new List<byte>();
         [SerializeField]
         string player1Id;
@@ -79,6 +83,25 @@ namespace GoFish
             Encrypt();
             return result;
         }
+
+        
+        public List<byte> PlayerHiddenBooks(Player player)
+        {
+            List<byte> result;
+            Decrypt();
+
+            if (player.PlayerId.Equals(player1Id))
+            {
+                result = hiddenBooksForPlayer1;
+            }
+            else
+            {
+                result = hiddenBooksForPlayer1;
+            }
+            Encrypt();
+            return result;
+        }
+
 
         public List<byte> PlayerBooks(Player player)
         {
@@ -163,7 +186,22 @@ namespace GoFish
             Encrypt();
         }
 
+        
+        public void AddBottomBooksForPlayer(Player player, Ranks ranks)
+        {
+            Decrypt();
 
+            if (player.PlayerId.Equals(player1Id))
+            {
+                hiddenBooksForPlayer1.Add((byte)ranks);
+            }
+            else
+            {
+                hiddenBooksForPlayer2.Add((byte)ranks);
+            }
+
+            Encrypt();
+        }
         public void AddBooksForPlayer(Player player, Ranks ranks)
         {
             Decrypt();
@@ -184,12 +222,12 @@ namespace GoFish
         {
             bool result = false;
             Decrypt();
-            if (player1Cards.Count == 0)
+            if (player1Cards.Count == 0 && booksForPlayer1.Count == 0 && hiddenBooksForPlayer1.Count == 0 )
             {
                 result = true;
             }
 
-            if (player2Cards.Count == 0)
+            if (player2Cards.Count == 0 && booksForPlayer2.Count == 0 && hiddenBooksForPlayer2.Count == 0)
             {
                 result = true;
             }

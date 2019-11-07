@@ -15,6 +15,7 @@ namespace GoFish
         public const int PLAYER_INITIAL_CARDS = 6;
 
         public Text MessageText;
+        public GameObject takeButton;
 
         protected CardAnimator cardAnimator;
 
@@ -34,6 +35,17 @@ namespace GoFish
         protected List<byte> selectedCardValues;
         public List<Card> selectedCards = new List<Card>();
 
+        AudioSource audioData;
+
+        public AudioClip turnStartClip;
+        public AudioClip shuffleClip;
+        public AudioClip takePileClip;
+
+        public List<AudioClip> takeCardSounds = new List<AudioClip>();
+
+        public GameObject explainPanel;
+
+
         public enum GameState
         {
             Idel,
@@ -51,7 +63,7 @@ namespace GoFish
 
         protected void Awake()
         {
-            localPlayer = new Player(); 
+            localPlayer = new Player();
             localPlayer.PlayerId = "offline-player";
             localPlayer.PlayerName = "Player";
             localPlayer.Position = PlayerPositions[0].position;
@@ -65,6 +77,7 @@ namespace GoFish
             remotePlayer.IsAI = true;
 
             cardAnimator = FindObjectOfType<CardAnimator>();
+            audioData = GetComponent<AudioSource>();
         }
 
         void Start()
@@ -150,6 +163,11 @@ namespace GoFish
             gameDataManager = new GameDataManager(localPlayer, remotePlayer);
             gameDataManager.Shuffle();
 
+            //PLAY SOUND
+            audioData.PlayOneShot(shuffleClip);
+            //audioData.clip = shuffleClip;
+            //audioData.loop = true;
+            //audioData.Play();
 
             for (int i = 0; i < 3; i++)
             {
@@ -159,11 +177,11 @@ namespace GoFish
                 //cardAnimator.DealBooks(localPlayer, bookRankP1);
                 //cardAnimator.DealBooks(remotePlayer, bookRankP2);
 
-                remotePlayer.CreateBottomBook(bookRankP1, cardAnimator,i);
+                remotePlayer.CreateBottomBook(bookRankP1, cardAnimator, i);
                 localPlayer.CreateBottomBook(bookRankP2, cardAnimator, i);
 
-                gameDataManager.AddBooksForPlayer(localPlayer, Card.GetRank(bookRankP1));
-                gameDataManager.AddBooksForPlayer(remotePlayer, Card.GetRank(bookRankP2));
+                gameDataManager.AddBottomBooksForPlayer(localPlayer, Card.GetRank(bookRankP1));
+                gameDataManager.AddBottomBooksForPlayer(remotePlayer, Card.GetRank(bookRankP2));
             }
 
             for (int i = 0; i < 3; i++)
@@ -171,8 +189,8 @@ namespace GoFish
                 byte bookRankP1 = gameDataManager.DrawCardValue();
                 byte bookRankP2 = gameDataManager.DrawCardValue();
 
-                remotePlayer.CreateTopBook(bookRankP1, cardAnimator,i);
-                localPlayer.CreateTopBook(bookRankP2, cardAnimator,i);
+                remotePlayer.CreateTopBook(bookRankP1, cardAnimator, i);
+                localPlayer.CreateTopBook(bookRankP2, cardAnimator, i);
 
                 //localPlayer.ReceiveBook(bookRankP1, cardAnimator);
 
@@ -181,7 +199,7 @@ namespace GoFish
 
             }
 
-            for (int i=0; i<3; i++)
+            for (int i = 0; i < 3; i++)
             {
                 gameDataManager.DealCardValuesToPlayer(localPlayer, PLAYER_INITIAL_2_CARDS);
                 gameDataManager.DealCardValuesToPlayer(remotePlayer, PLAYER_INITIAL_2_CARDS);
@@ -190,9 +208,33 @@ namespace GoFish
                 cardAnimator.DealDisplayingCards(remotePlayer, PLAYER_INITIAL_2_CARDS);
             }
 
+
+            //audioData.loop = false;
+            //audioData.Stop();
+
             gameState = GameState.TurnStarted;
         }
 
+
+        public void onExplainPanel()
+        {
+            explainPanel.gameObject.active = !explainPanel.gameObject.active;
+
+
+            GameObject hebrewPanel = GameObject.FindWithTag("HE_Panel");
+            GameObject englishPanel = GameObject.FindWithTag("EN_Panel");
+
+            if (PlayerPrefs.GetString("user_lang") == "Hebrew")
+            {
+                hebrewPanel.gameObject.active = true;
+                englishPanel.gameObject.active = false;
+            }
+            else
+            {
+                hebrewPanel.gameObject.active = false;
+                englishPanel.gameObject.active = true;
+            }
+        }
         protected virtual void OnTurnStarted()
         {
             SwitchTurn();
@@ -215,20 +257,32 @@ namespace GoFish
 
             if (currentTurnPlayer.IsAI)
             {
-                Card stackTopCard = cardAnimator.GetStackTopCard();
-                Card stackPreviousTopCard = cardAnimator.GetStackPreviousTopCard();
-
-                selectedCardValues = gameDataManager.AiDecideCardFromPlayer(currentTurnPlayer, stackTopCard, stackPreviousTopCard);
-                if (selectedCardValues.Count > 0 && Card.GetRank(selectedCardValues[0]) == Ranks.Ten)
-                {
-                    gameState = GameState.TurnSelectingNumber;
-                }
-                else
-                {
-                    gameState = GameState.TurnConfirmedSelectedNumber;
-                }
-                GameFlow();
+                StartCoroutine(AiThinkCoroutine());
             }
+        }
+
+        IEnumerator AiThinkCoroutine()
+        {
+            Card stackTopCard = cardAnimator.GetStackTopCard();
+            Card stackPreviousTopCard = cardAnimator.GetStackPreviousTopCard();
+
+            selectedCardValues = gameDataManager.AiDecideCardFromPlayer(currentTurnPlayer, stackTopCard, stackPreviousTopCard);
+            if (selectedCardValues.Count > 0)
+            {
+                selectedRank = Card.GetRank(selectedCardValues[0]);
+            }
+
+            //if (selectedCardValues.Count > 0 && Card.GetRank(selectedCardValues[0]) == Ranks.Ten)
+            //{
+            //    gameState = GameState.TurnSelectingNumber;
+            //}
+            //else 
+            //{
+            yield return new WaitForSeconds(UnityEngine.Random.Range(0.6f, 2.3f));   //Wait
+
+            gameState = GameState.TurnConfirmedSelectedNumber;
+            //}
+            GameFlow();
         }
 
         protected virtual void OnTurnConfirmedSelectedNumber()
@@ -237,14 +291,12 @@ namespace GoFish
             //TakeCardFromPileIfNeeded();
             if (currentTurnPlayer == localPlayer)
             {
-                SetMessage($"Asking {currentTurnTargetPlayer.PlayerName} for {selectedRank}s...");
+                SetMessage($"Throw {selectedRank} to {currentTurnTargetPlayer.PlayerName}...");
             }
             else
             {
-                SetMessage($"{currentTurnPlayer.PlayerName} is asking for {selectedRank}s...");
+                SetMessage($"{currentTurnPlayer.PlayerName} has throwed {selectedRank}...");
             }
-
-
 
             //byte cardValueFromTargetPlayer = gameDataManager.TakeOneCardValueWithRankFromPlayer(currentTurnPlayer, selectedCard.Rank);
 
@@ -256,40 +308,80 @@ namespace GoFish
                 //currentTurnPlayer.PutCardInStack(cardAnimator, selectedCard);
                 bool senderIsLocalPlayer = currentTurnPlayer == localPlayer;
 
-                Boolean actionResult = currentTurnPlayer.SendDisplayingCardToStack(cardAnimator, selectedCardValues, senderIsLocalPlayer);
+                String actionResult = currentTurnPlayer.SendDisplayingCardToStack(cardAnimator, selectedCardValues, senderIsLocalPlayer);
 
-                if (actionResult)
+                if (actionResult == "")
                 {
                     gameDataManager.RemoveCardValuesFromPlayer(currentTurnPlayer, selectedCardValues);   //selectedCard
-                    gameState = GameState.TurnStarted;
+
+                    if (cardAnimator.isTop4CardsAreSameRank())
+                    {
+                        cardAnimator.burnStackToDeathPile();
+                        gameState = GameState.TurnSelectingNumber;
+                    } 
+                    else if(Card.GetRank(selectedCardValues[0]) == Ranks.Ten || Card.GetRank(selectedCardValues[0]) == Ranks.Eight)
+                    {
+                        gameState = GameState.TurnSelectingNumber;
+                    }
+
+                    else
+                    {
+                        gameState = GameState.TurnStarted;
+                    }
 
                     TakeCardFromPileIfNeeded();
-
-                    //SwitchTurn();
                 }
                 else
                 {
-                    SetMessage("Incorrect choice");
+                    if (currentTurnPlayer.IsAI)
+                    {
+                        SetMessage("Take all the cards from the pile");
 
-                    gameState = GameState.TurnSelectingNumber;
-                    //GameFlow();
-                    ResetSelectedCard();
+                        OnTakeStackCards();
+                        gameState = GameState.TurnSelectingNumber;
+                        GameFlow();
+                    }
+                    else
+                    {
+                        SetMessage(actionResult);
+
+                        gameState = GameState.TurnSelectingNumber;
+                        //GameFlow();
+                    }
                 }
-                //selectedCardValue = 0;  
             }
             else
             {
-                SetMessage("Take the Pile");
+                SetMessage("Take all the cards from the pile");
 
                 OnTakeStackCards();
                 gameState = GameState.TurnSelectingNumber;
                 GameFlow();
             }
+
+            ResetSelectedCard();
         }
 
         private List<byte> GetSelectedCardValues()
         {
             List<byte> selectedCardValues = new List<byte>();
+
+            List<byte> playerBooks = gameDataManager.PlayerBooks(currentTurnPlayer);
+            List<byte> hiddenBooks = gameDataManager.PlayerHiddenBooks(currentTurnPlayer);
+
+
+            if (selectedCards.Count == 0 && currentTurnPlayer.isFinishedHandCards())
+            {
+                selectedCardValues.AddRange(playerBooks);
+            }
+            if (selectedCards.Count == 0 && playerBooks.Count == 0 && currentTurnPlayer.isFinishedDisplayingBooks())
+            {
+                List<byte> playerCards = gameDataManager.PlayerCards(currentTurnPlayer);
+
+                selectedCardValues.AddRange(hiddenBooks);
+            }
+
+
             foreach (Card card in selectedCards)
             {
                 selectedCardValues.Add(card.Value);
@@ -301,7 +393,7 @@ namespace GoFish
         {
             //List<byte> playerCardValues = gameDataManager.PlayerCards(remotePlayer);
 
-            for(int i=0; i < numOfCards; i++)
+            for (int i = 0; i < numOfCards; i++)
             {
                 byte cardValue = gameDataManager.DrawCardValue();
 
@@ -330,13 +422,14 @@ namespace GoFish
             //gameDataManager.DealCardValuesToPlayer(currentTurnPlayer, 1);
             //cardAnimator.DealDisplayingCards(currentTurnPlayer, 1);
 
-            gameState = GameState.TurnStarted;
-            GameFlow();
+            audioData.PlayOneShot(takeCardSounds[UnityEngine.Random.Range(0, takeCardSounds.Count - 1)]);
+            //gameState = GameState.TurnStarted;
+            //GameFlow();
         }
 
         private void TakeCardFromPileIfNeeded()
         {
-            if(currentTurnPlayer.DisplayingCards.Count < PLAYER_INITIAL_CARDS)
+            if (currentTurnPlayer.DisplayingCards.Count < PLAYER_INITIAL_CARDS)
             {
                 TakeCardsFromPile(PLAYER_INITIAL_CARDS - currentTurnPlayer.DisplayingCards.Count);
             }
@@ -351,6 +444,11 @@ namespace GoFish
 
             //cardAnimator.
             gameDataManager.AddCardValuesToPlayer(currentTurnPlayer, stackCardsValues);
+
+            //PLAY SOUND
+            audioData.PlayOneShot(takePileClip);
+
+            takeButton.gameObject.active = false;
         }
 
         //public void OnTurnWaitingForOpponentConfirmation()
@@ -398,7 +496,9 @@ namespace GoFish
 
         protected virtual void OnTurnGoFish()
         {
-            SetMessage($"Go FUCK fish!");
+            SetMessage($"{currentTurnPlayer.PlayerName} Takes All The Cards");
+
+            OnTakeStackCards();
 
             TakeCardFromPileIfNeeded();
         }
@@ -418,15 +518,19 @@ namespace GoFish
         //****************** Helper Methods *********************//
         public void ResetSelectedCard()
         {
+            cardAnimator.closeStackCards();
+            takeButton.gameObject.active = false;
+
             if (selectedCards.Count > 0)
             {
-                foreach(Card c in selectedCards)
+                foreach (Card c in selectedCards)
                 {
                     c.OnSelected(false);
                 }
                 selectedRank = 0;   //TODO REMOvE?
+                selectedCards.Clear();
+                selectedCardValues.Clear();
             }
-            //selectedCardValue = 0;
         }
 
         protected void SetMessage(string message)
@@ -476,11 +580,11 @@ namespace GoFish
         {
             List<byte> playerCardValues = gameDataManager.PlayerCards(localPlayer);
             localPlayer.SetCardValues(playerCardValues);
-            PlayerShowBooksIfNecessary(localPlayer);
+            //PlayerShowBooksIfNecessary(localPlayer);
 
             playerCardValues = gameDataManager.PlayerCards(remotePlayer);
             remotePlayer.SetCardValues(playerCardValues);
-            PlayerShowBooksIfNecessary(remotePlayer);
+            //PlayerShowBooksIfNecessary(remotePlayer);
         }
 
         public void ShowAndHidePlayersDisplayingCards()
@@ -489,6 +593,9 @@ namespace GoFish
             remotePlayer.HideCardValues();
             localPlayer.ShowBookValues();
             remotePlayer.ShowBookValues();
+
+            localPlayer.CheckForBooksAccess();
+            remotePlayer.CheckForBooksAccess();
         }
 
         //****************** User Interaction *********************//
@@ -498,30 +605,44 @@ namespace GoFish
             {
                 if (card.isInStack)
                 {
-                    //cardAnimator.openLast3CardsFromStack();
-                    OnTakeStackCards();
+                    takeButton.gameObject.active = !takeButton.gameObject.active;
+                    cardAnimator.openLast3CardsFromStack(takeButton.gameObject.active);
+
+                    //OnTakeStackCards();
                 }
                 else if (card.isTouchable)
                 {
-                    if (card.OwnerId == currentTurnPlayer.PlayerId && card.GetFaceUp())
+                    if (card.OwnerId == currentTurnPlayer.PlayerId)
                     {
                         List<Card> newSelectedCards = new List<Card>();
                         if (selectedCards.Count > 0)
                         {
                             newSelectedCards.AddRange(selectedCards);
-                            if (card.Rank == selectedRank) //newSelectedCards[0].Rank 
+                            if (card.Rank == selectedRank && !newSelectedCards.Contains(card)) //newSelectedCards[0].Rank 
                             {
                                 newSelectedCards.Add(card);
                             }
                             else
                             {
                                 newSelectedCards.Clear();
-                                foreach (Card c in selectedCards)
-                                {
-                                    c.OnSelected(false);
-                                }
-                                selectedRank = 0;
+                                //foreach (Card c in selectedCards)
+                                //{
+                                //    c.OnSelected(false);
+                                //}
+                                //selectedRank = 0;
                                 //selectedCardValue = Card.NO_VALUE;
+                                //selectedCardValues.Clear();
+
+                                if (selectedCards.Count > 0)
+                                {
+                                    foreach (Card c in selectedCards)
+                                    {
+                                        c.OnSelected(false);
+                                    }
+                                    selectedRank = 0;   //TODO REMOvE?
+                                    selectedCards.Clear();
+                                    selectedCardValues.Clear();
+                                }
                             }
                         }
                         else
@@ -591,16 +712,30 @@ namespace GoFish
         private void OnPlayer2FinishedPoolOfCards()
         {
             remotePlayer.SetTopBooksClickable(true);
+
+            if (remotePlayer.IsAI)
+            {
+                
+            }
         }
 
         private void OnGameFinishedPoolOfCards()
         {
-
+            //No More pile to take a card from
         }
 
         //****************** Animator Event *********************//
         public virtual void AllAnimationsFinished()
         {
+            if(localPlayer == currentTurnPlayer&& !audioData.isPlaying)
+            {
+                audioData.PlayOneShot(turnStartClip);
+            }
+            else if (localPlayer == currentTurnPlayer)
+            {
+                audioData.clip = turnStartClip;
+                audioData.PlayDelayed(1.2f);
+            }
             GameFlow();
         }
     }

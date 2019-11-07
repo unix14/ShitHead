@@ -26,6 +26,8 @@ namespace GoFish
         public GameObject Player1Portrait;
         public GameObject Player2Portrait;
 
+        public ExplainCanvasScript explainPanel;
+
         string nickname;
 
         private void Start()
@@ -85,6 +87,20 @@ namespace GoFish
             StartRoomButton.SetActive(false);
             Player1Portrait.SetActive(false);
             Player2Portrait.SetActive(false);
+        }
+
+        public void onExplainPanel()
+        {
+            explainPanel.gameObject.active = !explainPanel.gameObject.active;
+
+            if (PlayerPrefs.GetString("user_lang") == "Hebrew")
+            {
+                explainPanel.isHebrew = true;
+            }
+            else
+            {
+                explainPanel.isHebrew = false;
+            }
         }
 
         //****************** UI event handlers *********************//

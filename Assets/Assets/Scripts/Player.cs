@@ -143,6 +143,7 @@ namespace GoFish
 
                 card.SetCardValue((byte)cardValue);
                 card.SetFaceUp(true);
+                card.isTouchable = false;
 
                 float randomRotation = UnityEngine.Random.Range(-1 * Constants.BOOK_MAX_RANDOM_ROTATION, Constants.BOOK_MAX_RANDOM_ROTATION);
                 card.transform.position = targetPosition;
@@ -250,7 +251,8 @@ namespace GoFish
                     card.isTouchable = true;
 
                     receivingPlayer.ReceiveDisplayingCard(card);
-                    cardAnimator.AddCardAnimation(card, receivingPlayer.NextCardPosition());
+                    cardAnimator.AddCardAnimation(card, receivingPlayer.NextCardPosition(),index);
+
                     if (isLocalPlayer)
                         NumberOfDisplayingCards++;
                     else
@@ -317,46 +319,75 @@ namespace GoFish
             RepositionDisplayingCards(cardAnimator);
         }
 
-        public Boolean SendDisplayingCardToStack(CardAnimator cardAnimator, List<byte> cardValues, bool isLocalPlayer)
+        public string SendDisplayingCardToStack(CardAnimator cardAnimator, List<byte> cardValues, bool isLocalPlayer)
         {
-            int playerDisplayingCardsCount = DisplayingCards.Count;
+            string result ="";
 
-            if (playerDisplayingCardsCount == 0)
+            List<Card> allPossibleCards = new List<Card>();
+
+            allPossibleCards.AddRange(DisplayingCards);
+
+            if (DisplayingCards.Count == 0 && isFinishedHandCards())
             {
-                Debug.LogError("Not enough displaying cards420");
-                return false;
+                allPossibleCards.AddRange(DisplayingBooks);
+                foreach(Card card in DisplayingBooks)
+                {
+                    card.isTouchable = true;
+                }
+            }
+            else
+            {
+                foreach (Card card in DisplayingBooks)
+                {
+                    card.isTouchable = false;
+                }
+            }
+            if (DisplayingBooks.Count == 0 && allPossibleCards.Count == 0 && isFinishedDisplayingBooks())
+            {
+                allPossibleCards.AddRange(HiddenBooks);
+                foreach (Card card in HiddenBooks)
+                {
+                    card.isTouchable = true;
+                }
+            }
+            else
+            {
+                foreach (Card card in HiddenBooks)
+                {
+                    card.isTouchable = false;
+                }
             }
 
-            bool result = true;
-
-            for(int i=0; i < cardValues.Count; i++)
+            for (int i=0; i < cardValues.Count; i++)
             {
                 byte cardValue = cardValues[i];
                 Card card = null;
 
                 if (isLocalPlayer)
                 {
-                    foreach (Card c in DisplayingCards)
+                    foreach (Card c in allPossibleCards)
                     {
-                        if (c.Rank == Card.GetRank(cardValue) && c.Suit == Card.GetSuit(cardValue))
+                        if ((c.Rank == Card.GetRank(cardValue) && c.Suit == Card.GetSuit(cardValue)) || isFinishedDisplayingBooks())
                         {
                             card = c;
+                            card.SetCardValue(cardValue);
                             break;
                         }
                     }
                 }
                 else
                 {
-                    card = DisplayingCards[i];           //[i] ??
+                    card = allPossibleCards[i];           //[i] ??
                     card.SetCardValue(cardValue);
                     //result = false;
                 }
-                result = result && isCardOkToThrow(cardAnimator, card);
+
+                result = isCardOkToThrow(cardAnimator, card);
             }
             return result;
         }
 
-        private bool isCardOkToThrow(CardAnimator cardAnimator, Card card)
+        private string isCardOkToThrow(CardAnimator cardAnimator, Card card)
         {
             if (card != null)
             {
@@ -372,20 +403,18 @@ namespace GoFish
                         {
                             if (card.Rank == Ranks.Ten)
                             {
-                                Debug.LogError("Implement :: put 10 card in stack");
                                 Put10CardInStack(cardAnimator, card);
-                                return true;
+                                return "";
                             }
                             else
                             {
                                 PutCardInStack(cardAnimator, card);
-                                return true;
+                                return "";
                             }
                         }
                         else
                         {
-                            Debug.LogError("You encountred ACE");
-                            return false;
+                            return "You need an Ace, or a lucky card";
                         }
                     }
                     else if (topStackCard.Rank == Ranks.Seven)
@@ -393,40 +422,37 @@ namespace GoFish
                         if (card.Rank <= Ranks.Seven && card.Rank != Ranks.Ace)
                         {
                             PutCardInStack(cardAnimator, card);
-                            return true;
+                            return "";
                         }
                         else if (doIhaveAluckyCard)
                         {
                             if (card.Rank == Ranks.Ten)
                             {
-                                Debug.LogError("Implement :: put 10 card in stack");
                                 Put10CardInStack(cardAnimator, card);
-                                return true;
+                                return "";
                             }
                             else
                             {
                                 PutCardInStack(cardAnimator, card);
-                                return true;
+                                return "";
                             }
                         }
                         else
                         {
-                            Debug.LogError("You encountred  Need bigger than 7");
-                            return false;
+                            return "You need smaller or equal card than 7, or a lucky card";
                         }
                     }
                     else if (topStackCard.Rank == Ranks.Two || card.Rank == Ranks.Ace || doIhaveAluckyCard)
                     {
                         if (card.Rank == Ranks.Ten)
                         {
-                            Debug.LogError("Implement :: put 10 card in stack");
                             Put10CardInStack(cardAnimator, card);
-                            return true;
+                            return "";
                         }
                         else
                         {
                             PutCardInStack(cardAnimator, card);
-                            return true;
+                            return "";
                         }
                     }
                     else if (topStackCard.Rank == Ranks.Three)
@@ -436,64 +462,67 @@ namespace GoFish
                             if (card.Rank >= previousStackCard.Rank && previousStackCard.Rank != Ranks.Ace)
                             {
                                 PutCardInStack(cardAnimator, card);
-                                return true;
+                                return "";
                             }
                             else if (previousStackCard.Rank == Ranks.Ace && (card.Rank == Ranks.Ace || doIhaveAluckyCard))
                             {
                                 if (card.Rank == Ranks.Ten)
                                 {
-                                    Debug.LogError("Implement :: put 10 card in stack");
                                     Put10CardInStack(cardAnimator, card);
-                                    return true;
+                                    return "";
                                 }
                                 else
                                 {
                                     PutCardInStack(cardAnimator, card);
-                                    return true;
+                                    return "";
                                 }
 
                             }
                             else
                             {
-                                Debug.LogError("You encountred Need bigger Card Than " + previousStackCard.Rank);
-                                return false;
+                                return "You need bigger card than " + previousStackCard.Rank + ", or a lucky card";
                             }
                         }
                         else
                         {
-                            if (card.Rank >= Ranks.Three)
+                            if (card.Rank >= Ranks.Three || (card.Rank == Ranks.Ace || doIhaveAluckyCard))
                             {
-                                PutCardInStack(cardAnimator, card);
-                                return true;
+                                if (card.Rank == Ranks.Ten)
+                                {
+                                    Put10CardInStack(cardAnimator, card);
+                                    return "";
+                                }
+                                else
+                                {
+                                    PutCardInStack(cardAnimator, card);
+                                    return "";
+                                }
                             }
                             else
                             {
-                                Debug.LogError("You encountred Need bigger Card Than 3");
-                                return false;
+                                return "You need bigger card than 3, or a lucky card";
                             }
                         }
                     }
                     else if (card.Rank >= topStackCard.Rank)
                     {
                         PutCardInStack(cardAnimator, card);
-                        return true;
+                        return "";
                     }
                     else
                     {
-                        Debug.LogError("You encountred Need bigger Card " + card.Rank + card.Value);
-                        return false;
+                        return "You need bigger card than " + topStackCard.Rank ;
                     }
                 }
                 else
                 {
                     PutCardInStack(cardAnimator, card);
-                    return true;
+                    return "";
                 }
             }
             else
             {
-                Debug.LogError("Unable to find displaying card.");
-                return false;
+                return "Unable to find displaying card.";
             }
         }
 
@@ -505,11 +534,65 @@ namespace GoFish
             card.SetFaceUp(true);
 
             DisplayingCards.Remove(card);
+            DisplayingBooks.Remove(card);
+            HiddenBooks.Remove(card);
+
             cardAnimator.Add10CardToStack(card);
             NumberOfDisplayingCards--;
 
             RepositionDisplayingCards(cardAnimator);
         }
+
+        public bool isFinishedHandCards()
+        {
+            return DisplayingCards.Count == 0;
+        }
+
+        public bool isFinishedDisplayingBooks()
+        {
+            return DisplayingBooks.Count == 0;
+        }
+
+        public bool isFinishedHiddenBooks()
+        {
+            return HiddenBooks.Count == 0;
+        }
+
+        public void CheckForBooksAccess()
+        {
+            if (isFinishedHandCards())
+            {
+                SetTopBooksClickable(true);
+
+
+                if (isFinishedDisplayingBooks())
+                {
+                    foreach (Card card in HiddenBooks)
+                    {
+                        card.isTouchable = true;
+                    }
+                }
+                else
+                {
+                    SetHiddenBooksClickable(false);
+                }
+
+                if (isFinishedHiddenBooks())
+                {
+                    //win game
+
+                }
+                else
+                {
+                    SetHiddenBooksClickable(false);
+                }
+            }
+            else
+            {
+                SetTopBooksClickable(false);
+            }
+        }
+
 
         public void PutCardInStack(CardAnimator cardAnimator, Card card)
         {
@@ -519,6 +602,9 @@ namespace GoFish
             card.SetFaceUp(true);
 
             DisplayingCards.Remove(card);
+            DisplayingBooks.Remove(card);
+            HiddenBooks.Remove(card);
+            
             cardAnimator.AddCardToStack(card);
             NumberOfDisplayingCards--;
             
@@ -540,6 +626,14 @@ namespace GoFish
         internal void SetTopBooksClickable(bool isClickable)
         {
             foreach (Card c in DisplayingBooks)
+            {
+                c.isTouchable = true;
+            }
+        }
+
+        public void SetHiddenBooksClickable(bool isClickable)
+        {
+            foreach (Card c in HiddenBooks)
             {
                 c.isTouchable = true;
             }

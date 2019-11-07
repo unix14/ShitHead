@@ -83,26 +83,45 @@ namespace GoFish
         bool working = false;
 
         public int stackSize { get => StackCards.Count; }
-        public bool isOpen = false;
         public int dumpStackSize = 0;
 
         public Card GetStackTopCard(){
-            if(StackCards != null && stackSize > 0)
-            {
-                return StackCards[stackSize-1];
-            }
-            return null;
+            return GetCardAtPosition(1);
         }
 
         public Card GetStackPreviousTopCard()
         {
-            if (StackCards != null && stackSize > 1)
+            return GetCardAtPosition(2);
+        }
+
+        public Card GetCardAtPosition(int indexFromTop)
+        {
+            if (StackCards != null && stackSize > indexFromTop-1)
             {
-                return StackCards[stackSize - 2];
+                return StackCards[stackSize - indexFromTop];
             }
             return null;
         }
 
+        public bool isTop4CardsAreSameRank()
+        {
+            if(StackCards != null && stackSize > 3)
+            {
+                Card firstTopCard = GetStackTopCard();
+                Card secondTopCard = GetStackPreviousTopCard();
+                Card thirdTopCard = GetCardAtPosition(3);
+                Card forthTopCard = GetCardAtPosition(4);
+
+                Ranks rank = firstTopCard.Rank;
+
+                if (firstTopCard != null && secondTopCard != null && thirdTopCard != null && forthTopCard != null
+                    && rank == secondTopCard.Rank && rank == thirdTopCard.Rank && rank == forthTopCard.Rank )
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
         void Start()
         {
             cardAnimations = new Queue<CardAnimation>();
@@ -230,6 +249,14 @@ namespace GoFish
             working = true;
         }
 
+        public void AddCardAnimation(Card card, Vector2 position, int index)
+        {
+            CardAnimation ca = new CardAnimation(card, position, Quaternion.identity, Constants.STACK_OF_CARDS_MOVEMENT_SPEED + (index * 5));
+
+            cardAnimations.Enqueue(ca);
+            working = true;
+        }
+
         public void AddCardToStack(Card card)
         {
             float randomRotation = UnityEngine.Random.Range(-1 * Constants.BOOK_MAX_RANDOM_ROTATION, Constants.BOOK_MAX_RANDOM_ROTATION);
@@ -257,16 +284,25 @@ namespace GoFish
 
             //card.SetFaceUp(true);
             cardAnimations.Enqueue(ca);
+            
+            burnStackToDeathPile();
 
-            foreach (Card c in StackCards)
+            working = true;
+        }
+
+        public void burnStackToDeathPile()
+        {
+            for (int i = 0; i < StackCards.Count; i++)
             {
-                CardAnimation cleanStackAniamtion = new CardAnimation(c, startPosition * -1, c.transform.rotation, Constants.STACK_OF_CARDS_MOVEMENT_SPEED);
+                Card c = StackCards[i];
+                CardAnimation cleanStackAniamtion = new CardAnimation(c, startPosition * -1, c.transform.rotation, Constants.STACK_OF_CARDS_MOVEMENT_SPEED + (i * 5));
                 cardAnimations.Enqueue(cleanStackAniamtion);
 
+                c.isTouchable = false;
+                c.isInStack = false;
                 dumpStackSize++;
                 c.SetDisplayingOrder(dumpStackSize);
             }
-
             working = true;
 
             StackCards.Clear();
@@ -295,23 +331,38 @@ namespace GoFish
             working = true;
         }
 
-        public void openLast3CardsFromStack()
+        public void openLast3CardsFromStack(bool isOpen)
         {
-            isOpen = !isOpen;
             int allStackCardsCount = StackCards.Count - 1;
-            if(allStackCardsCount > 1)
+
+            if (allStackCardsCount > 3 && isOpen)
             {
-                for (int i = 0; i <= 2; i++)
+                for (int i = 0; i <= 4; i++)
                 {
-                    if (isOpen && i > 0)
-                    {
-                        StackCards[allStackCardsCount - i].transform.position = (Vector2)transform.position + Vector2.right * Mathf.Min(Constants.CARD_SELECTED_STACK_OFFSET * i, 3.5f);
-                    }
-                    else
-                    {
-                        StackCards[allStackCardsCount - i].transform.position = stackPosition;
-                    }
+                        StackCards[allStackCardsCount - i].transform.position = (Vector2)transform.position + Vector2.right *Constants.CARD_SELECTED_STACK_OFFSET* (i* 3.2f);
                 }
+            } else if (isOpen)
+            {
+                for (int i = 0; i <= allStackCardsCount; i++)
+                {
+                    StackCards[allStackCardsCount - i].transform.position = (Vector2)transform.position + Vector2.right * Constants.CARD_SELECTED_STACK_OFFSET * (i * 3.2f);
+                }
+            }
+            else
+            {
+                closeStackCards();
+            }
+        }
+
+        public void closeStackCards()
+        {
+            int allStackCardsCount = StackCards.Count - 1;
+
+            for (int i = 0; i <= allStackCardsCount; i++)
+            {
+                Quaternion oldRotation = StackCards[i].transform.rotation;
+                StackCards[i].transform.position = stackPosition;
+                StackCards[i].transform.rotation = oldRotation;
             }
         }
 

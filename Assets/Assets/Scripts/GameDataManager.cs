@@ -55,7 +55,7 @@ namespace GoFish
             List<byte> poolOfCards = protectedData.GetPoolOfCards();
 
             int numberOfCardsInThePool = poolOfCards.Count;
-            int start = Math.Max(0,numberOfCardsInThePool - 1 - numberOfCards);
+            int start = Math.Max(0, numberOfCardsInThePool - 1 - numberOfCards);
 
             List<byte> cardValues = poolOfCards.GetRange(start, numberOfCards);
             poolOfCards.RemoveRange(start, numberOfCards);
@@ -91,6 +91,11 @@ namespace GoFish
             return protectedData.PlayerBooks(player);
         }
 
+        public List<byte> PlayerHiddenBooks(Player player)
+        {
+            return protectedData.PlayerHiddenBooks(player);
+        }
+
         public void AddCardValuesToPlayer(Player player, List<byte> cardValues)
         {
             protectedData.AddCardValuesToPlayer(player, cardValues);
@@ -110,7 +115,15 @@ namespace GoFish
         {
             protectedData.RemoveCardFromPlayer(player, cardValueToRemove);
         }
-        public void AddBooksForPlayer(Player player,Ranks ranks)
+
+
+
+        public void AddBottomBooksForPlayer(Player player, Ranks ranks)
+        {
+            protectedData.AddBottomBooksForPlayer(player, ranks);
+        }
+
+        public void AddBooksForPlayer(Player player, Ranks ranks)
         {
             protectedData.AddBooksForPlayer(player, ranks);
         }
@@ -214,40 +227,27 @@ namespace GoFish
             return null;
         }
 
-        public Ranks SelectRandomRanksFromPlayersCardValues(Player player)
-        {
-            List<byte> playerCards = protectedData.PlayerCards(player);
-            int index = UnityEngine.Random.Range(0, playerCards.Count);
-
-            //todo:: implement AI strategy
-            foreach (byte cardValue in playerCards)
-            {
-                if ((Ranks)cardValue > GetSelectedRank())
-                {
-                    return Card.GetRank(cardValue);
-                }
-                else if ((Ranks)cardValue < GetSelectedRank() && GetSelectedRank() == Ranks.Seven)
-                {
-                    return Card.GetRank(cardValue);
-                }
-            }
-
-            return Card.GetRank(playerCards[index]);
-        }
-
         public List<byte> AiDecideCardFromPlayer(Player player,Card topCard, Card previousTopCard)
         {
             List<byte> cardsToThrow = new List<byte>();
             List<byte> playerCards = protectedData.PlayerCards(player);
 
-            //todo:: implement AI strategy
+            if(playerCards.Count == 0 && player.isFinishedHandCards())
+            {
+                playerCards.AddRange(PlayerBooks(player));
+            }
+            if (playerCards.Count == 0 && player.isFinishedDisplayingBooks())
+            {
+                playerCards.AddRange(PlayerHiddenBooks(player));
+            }
+
             foreach (byte cardValue in playerCards)
             {
                 bool doIhaveLuckyCardValue = (Card.GetRank(cardValue) == Ranks.Two || Card.GetRank(cardValue) == Ranks.Three || Card.GetRank(cardValue) == Ranks.Ten);
                 bool isCardsToThrowEmpty = cardsToThrow.Count == 0;
                 bool isCardValueFitsCardsToThrow = (cardsToThrow.Count > 0 && Card.GetRank(cardsToThrow[0]) == Card.GetRank(cardValue));
 
-                if (topCard != null && topCard.Value != Card.NO_VALUE && Card.GetRank(cardValue) <= Card.GetRank(topCard.Value) && topCard.Rank == Ranks.Seven && Card.GetRank(cardValue) != Ranks.Ace)
+                if (topCard != null && topCard.Value != Card.NO_VALUE && Card.GetRank(cardValue) <= Ranks.Seven && topCard.Rank == Ranks.Seven && Card.GetRank(cardValue) != Ranks.Ace)
                 {
                     if(isCardsToThrowEmpty || isCardValueFitsCardsToThrow)
                     {
@@ -287,7 +287,7 @@ namespace GoFish
                         cardsToThrow.Add(cardValue);
                     }
                 }
-                else if (topCard != null && topCard.Value != Card.NO_VALUE && Card.GetRank(cardValue) >= topCard.Rank)
+                else if (topCard != null && topCard.Value != Card.NO_VALUE && Card.GetRank(cardValue) >= topCard.Rank && topCard.Rank != Ranks.Ace)
                 {
                     if (isCardsToThrowEmpty || isCardValueFitsCardsToThrow)
                     {

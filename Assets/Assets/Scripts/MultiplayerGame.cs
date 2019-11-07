@@ -251,8 +251,10 @@ namespace GoFish
                         localPlayer.RestoreBook((Ranks)rank, cardAnimator);
 
                         //TODO:: also restore Top Book
+
+                        // use gameDataManager.PlayerHiddenBooks to get hidden books
                     }
-                    
+
                     //retore player 2 Books
                     List<byte> booksForRemotePlayer = gameDataManager.PlayerBooks(remotePlayer);
                     foreach (byte rank in booksForRemotePlayer)
